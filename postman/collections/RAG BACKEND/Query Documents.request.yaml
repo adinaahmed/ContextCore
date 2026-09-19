@@ -1,0 +1,15 @@
+$kind: http-request
+name: Query Documents
+url: /query/history/gemini_fixed_test
+method: GET
+headers:
+  x-api-key: "{{api_key}}"
+body:
+  type: json
+  content: |-
+    {
+      "question": "What does RAG combine?",
+      "top_k": 3,
+      "session_id": "gemini_fixed_test"
+    }
+order: 3862129528560131

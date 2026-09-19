@@ -1,0 +1,18 @@
+[
+  {
+    "question": "What score did Bob get?",
+    "expected_document_id": "docx_table_test_1"
+  },
+  {
+    "question": "What handles exact keyword matches like error codes?",
+    "expected_document_id": "contextual_test_1"
+  },
+  {
+    "question": "What does error code E4471 mean?",
+    "expected_document_id": "hybrid_test"
+  },
+  {
+    "question": "What does the chart in the document show?",
+    "expected_document_id": "image_test_1"
+  }
+]

@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+chroma_db/
+.pytest_cache/
+*.egg-info/
+.git/
+.DS_Store
+*.pdf
+*.docx
+*.pptx
+*.xlsx
+*.csv
+*.png
+test_*.py
+diagnostic_test.py
