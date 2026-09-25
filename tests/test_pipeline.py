@@ -223,3 +223,28 @@ def test_same_document_id_does_not_overwrite_other_user(token_a, token_b):
     finally:
         client.delete(f"/documents/{doc_id}", headers=_auth(token_a))
         client.delete(f"/documents/{doc_id}", headers=_auth(token_b))
+
+        
+
+# ---------- 9. Calculator fallback (works without any LLM) ----------
+
+@pytest.mark.parametrize("question, expected", [
+    ("What is 123 multiplied by 4?", 492),
+    ("what is 25 * 4", 100),
+    ("calculate 12 x 3", 36),
+    ("what is 100 divided by 8", 12.5),
+    ("what is 20 percent of 50", 10),
+    ("calculate the average of 10 and 20", 15),
+    ("what is 5 squared", 25),
+    ("what is 1,000 plus 250", 1250),
+])
+def test_calculator_fallback_parses_questions(question, expected):
+    from app.core.tool_calling import _local_answer
+    result = _local_answer(question)
+    assert result is not None, f"Could not parse: {question}"
+    assert abs(result["tool_result"]["result"] - expected) < 1e-9
+
+
+def test_calculator_fallback_ignores_non_math():
+    from app.core.tool_calling import _local_answer
+    assert _local_answer("what is hashing") is None
