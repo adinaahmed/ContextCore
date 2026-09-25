@@ -47,6 +47,14 @@ def ingest_or_update_document(
     doc_hash = compute_hash(text)
     existing = db.query(Document).filter(Document.document_id == document_id).first()
 
+    # Document IDs are unique across the whole database. If this ID already
+    # belongs to another user, refuse instead of updating their document.
+    if existing is not None and str(existing.owner_id) != str(owner_id):
+        raise ValueError(
+            f"A document named '{document_id}' already exists in another account. "
+            "Please rename the file or choose a different document ID."
+        )
+
     if existing is not None and existing.file_hash == doc_hash:
         return IngestionResult(action="unchanged", version=existing.version, chunks_total=0, chunks_reused=0, chunks_reprocessed=0)
 
@@ -127,7 +135,10 @@ def ingest_or_update_document(
 
 
 def mark_document_failed(db: Session, document_id: str, owner_id: str):
-    existing = db.query(Document).filter(Document.document_id == document_id).first()
+    # Only mark the document as failed if it belongs to this user
+    existing = db.query(Document).filter(
+        Document.document_id == document_id, Document.owner_id == owner_id
+    ).first()
     if existing:
         existing.processing_status = "failed"
         db.flush()
