@@ -1,3 +1,5 @@
+## Getting Started
+
 ### Requirements
 - Python 3.11 (not 3.12+, some libraries aren't compatible yet)
 - PostgreSQL
@@ -9,9 +11,9 @@
 ```bash
 git clone https://github.com/adinaahmed/ContextCore.git
 cd ContextCore
-python3.11 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt  # Windows: remove the uvloop line first
+python3.11 -m venv .venv          # Windows: py -3.11 -m venv .venv
+source .venv/bin/activate         # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
 Copy `.env.example` to `.env` and fill in your own values:
@@ -30,5 +32,5 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
 Open http://127.0.0.1:8000/ui/ and register an account.
 
-## Author
-- Adina Ahmad
+## Authors
+- Adina Ahmed
