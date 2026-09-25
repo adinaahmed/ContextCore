@@ -1,0 +1,21 @@
+$kind: http-request
+name: Ingest Document
+url: "{{base_url}}/ingest?="
+method: POST
+headers:
+  x-api-key: "{{api_key}}"
+queryParams:
+  - key: ""
+    value: ""
+    disabled: false
+    description: ""
+body:
+  type: json
+  content: |-
+    {
+      "text": "RAG stands for Retrieval-Augmented Generation. It combines retrieval with generation.",
+      "document_id": "postman_test_1",
+      "source": "postman",
+      "strategy": "recursive"
+    }
+order: 3664167220089313

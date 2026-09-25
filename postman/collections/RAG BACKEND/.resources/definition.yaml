@@ -1,0 +1,5 @@
+$kind: collection
+name: RAG BACKEND
+variables:
+  base_url: ""
+  api_key: ""

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ContextCore</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22><rect width=%2220%22 height=%2220%22 rx=%225%22 fill=%22%237A0D0E%22/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=10">
+</head>
+<body>
+
+<div id="auth-screen" class="screen">
+  <div class="auth-split">
+    <div class="auth-brand-panel">
+      <div class="auth-brand-title">ContextCore</div>
+      <div class="auth-brand-sub">A document intelligence platform for reading, understanding, and querying your own files — with every answer traceable back to its exact source.</div>
+      <div class="auth-brand-features">
+        <div class="auth-brand-feature"><span class="auth-brand-feature-dot"></span>Grounded answers, never invented</div>
+        <div class="auth-brand-feature"><span class="auth-brand-feature-dot"></span>Full traceability back to your sources</div>
+        <div class="auth-brand-feature"><span class="auth-brand-feature-dot"></span>Works across PDFs, slides, spreadsheets and more</div>
+      </div>
+    </div>
+    <div class="auth-form-panel">
+      <div class="auth-card">
+        <div class="brand-text-large">ContextCore</div>
+        <div class="auth-accent-bar"></div>
+        <p class="subtitle">AI Document Intelligence</p>
+        <div class="tabs">
+          <button class="tab active" data-tab="login">Log In</button>
+          <button class="tab" data-tab="register">Register</button>
+        </div>
+        <form id="login-form" class="auth-form">
+          <input type="email" id="login-email" placeholder="Email" required>
+          <input type="password" id="login-password" placeholder="Password" required>
+          <button type="submit" class="btn-primary">Enter</button>
+          <p class="error" id="login-error"></p>
+        </form>
+        <form id="register-form" class="auth-form hidden">
+          <input type="email" id="register-email" placeholder="Email" required>
+          <input type="password" id="register-password" placeholder="Password (min 8 characters)" required>
+          <button type="submit" class="btn-primary">Create Account</button>
+          <p class="error" id="register-error"></p>
+        </form>
+        <p class="session-note" id="session-note"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="dashboard-screen" class="screen hidden">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-logo"><span class="logo-mark small"></span><span class="sidebar-logo-text">ContextCore</span></div>
+      <button id="sidebar-toggle" class="sidebar-toggle" title="Collapse sidebar">&lt;</button>
+    </div>
+    <div class="sidebar-section-label">Workspace</div>
+    <button class="nav-item active" data-view="overview">Overview</button>
+    <button class="nav-item" data-view="ask">Ask AI</button>
+    <button class="nav-item" data-view="documents">Documents</button>
+    <button class="nav-item" data-view="history">Chat History</button>
+    <button class="nav-item" data-view="pipeline">RAG Pipeline</button>
+    <button class="nav-item" data-view="evaluation">Evaluation</button>
+    <button class="nav-item" data-view="settings">Settings</button>
+    <div class="sidebar-spacer"></div>
+    <div class="sidebar-user" id="sidebar-user"></div>
+    <button id="logout-btn" class="nav-item logout">Log Out</button>
+  </aside>
+
+  <main class="content">
+
+    <section id="view-overview" class="view active">
+      <div class="hero-panel">
+        <div class="hero-text">
+          <div class="hero-greeting" id="hero-greeting">Welcome back</div>
+          <div class="hero-sub">System status: <span id="hero-status">checking</span></div>
+        </div>
+        <button id="refresh-btn" class="btn-secondary">Refresh</button>
+      </div>
+
+      <div class="explainer-panel">
+        <div class="explainer-title">How this system works</div>
+        <div class="explainer-steps">
+          <div class="explainer-step">
+            <div class="explainer-step-num">1</div>
+            <div class="explainer-step-title">Upload documents</div>
+            <div class="explainer-step-desc">Add PDFs, slides, spreadsheets or notes on the Documents page. Each file is automatically read, split into smaller pieces, and made searchable.</div>
+          </div>
+          <div class="explainer-divider"></div>
+          <div class="explainer-step">
+            <div class="explainer-step-num">2</div>
+            <div class="explainer-step-title">Ask a question</div>
+            <div class="explainer-step-desc">On Ask AI, type any question. The system searches your uploaded documents for the most relevant pieces automatically.</div>
+          </div>
+          <div class="explainer-divider"></div>
+          <div class="explainer-step">
+            <div class="explainer-step-num">3</div>
+            <div class="explainer-step-title">Get a grounded answer</div>
+            <div class="explainer-step-desc">The answer is generated only from what was found in your documents, with the exact sources shown alongside it.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-section-title">System status</div>
+      <div class="stat-grid">
+        <div class="stat-card tooltip-host">
+          <div class="stat-label">Documents</div>
+          <div class="stat-value skeleton" id="stat-documents">—</div>
+          <div class="stat-sub" id="stat-documents-sub"></div>
+          <span class="tooltip-bubble">The total number of files you've uploaded and indexed for search.</span>
+        </div>
+        <div class="stat-card tooltip-host">
+          <div class="stat-label">Indexed Chunks</div>
+          <div class="stat-value skeleton" id="stat-chunks">—</div>
+          <div class="stat-sub" id="stat-chunks-sub"></div>
+          <span class="tooltip-bubble">Documents are split into smaller pieces so the AI can find the exact relevant part of a large file.</span>
+        </div>
+        <div class="stat-card tooltip-host">
+          <div class="stat-label">Collections</div>
+          <div class="stat-value skeleton" id="stat-collections">—</div>
+          <div class="stat-sub">Subject groupings</div>
+          <span class="tooltip-bubble">Optional labels you give documents when uploading, so you can group and browse them by subject later.</span>
+        </div>
+        <div class="stat-card tooltip-host">
+          <div class="stat-label">Index Health</div>
+          <div class="stat-value skeleton" id="stat-health">—</div>
+          <div class="stat-sub" id="stat-health-sub"></div>
+          <span class="tooltip-bubble">A background check confirming nothing is broken or inconsistent in the underlying data.</span>
+        </div>
+        <div class="stat-card tooltip-host">
+          <div class="stat-label">LLM Provider</div>
+          <div class="stat-value skeleton" id="stat-provider">—</div>
+          <div class="stat-sub">Current backend</div>
+          <span class="tooltip-bubble">The AI model currently generating your answers.</span>
+        </div>
+        <div class="stat-card tooltip-host">
+          <div class="stat-label">Embedding Model</div>
+          <div class="stat-value skeleton" id="stat-embedding">—</div>
+          <div class="stat-sub">Local, CPU</div>
+          <span class="tooltip-bubble">The model that converts your text into a searchable numeric form. Runs on this machine.</span>
+        </div>
+        <div class="stat-card tooltip-host">
+          <div class="stat-label">Latest Recall@K</div>
+          <div class="stat-value skeleton" id="stat-recall">—</div>
+          <div class="stat-sub" id="stat-recall-sub">Not evaluated</div>
+          <span class="tooltip-bubble">A measured accuracy score: of a test set of questions, what percentage found their correct source.</span>
+        </div>
+        <div class="stat-card tooltip-host">
+          <div class="stat-label">Failed Documents</div>
+          <div class="stat-value skeleton" id="stat-failed">—</div>
+          <div class="stat-sub">Need attention</div>
+          <span class="tooltip-bubble">Documents that failed to process and may need to be re-uploaded.</span>
+        </div>
+      </div>
+
+      <div id="load-error" class="load-error hidden"></div>
+    </section>
+
+    <section id="view-ask" class="view">
+      <div class="panel-header">
+        <h2>Ask AI</h2>
+        <div class="header-actions">
+          <span id="usage-counter" class="usage-counter"></span>
+          <div class="doc-scope-wrap">
+            <button type="button" id="doc-scope-btn" class="doc-scope-btn">All documents</button>
+            <div id="doc-scope-panel" class="doc-scope-panel hidden"></div>
+          </div>
+          <button id="export-chat-btn" class="export-btn">Export Chat</button>
+          <button id="new-chat-btn" class="btn-secondary btn-small">New Chat</button>
+          <div class="advanced-wrap">
+            <button id="advanced-toggle" class="btn-ghost btn-small">Advanced Options</button>
+            <span id="advanced-status-chip" class="advanced-status-chip hidden"></span>
+            <div id="advanced-panel" class="advanced-panel hidden">
+        <div class="advanced-option">
+          <div class="advanced-option-head">
+            <label class="switch"><input type="checkbox" id="opt-multi-query"><span class="slider"></span></label>
+            <div class="advanced-option-title">Multi-query search</div>
+          </div>
+          <div class="advanced-option-desc">Rephrases your question 2–3 different ways and searches for each, then merges the results. <strong>Best for:</strong> vague or multi-part questions. <strong>Trade-off:</strong> a few seconds slower.</div>
+        </div>
+        <div class="advanced-option">
+          <div class="advanced-option-head">
+            <label class="switch"><input type="checkbox" id="opt-compression"><span class="slider"></span></label>
+            <div class="advanced-option-title">Compress context</div>
+          </div>
+          <div class="advanced-option-desc">Trims each retrieved source down to only its most relevant sentences before answering. <strong>Best for:</strong> long, noisy documents. <strong>Trade-off:</strong> may occasionally cut something useful.</div>
+        </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="chat-window" class="chat-window">
+        <div class="chat-empty" id="chat-empty-state">
+          <div class="chat-empty-title">Ask anything about your documents</div>
+          <div class="chat-empty-sub">Try one of these, or type your own question below.</div>
+          <div class="chat-suggestions">
+            <button class="suggestion-chip">What documents do you have access to?</button>
+            <button class="suggestion-chip">Summarize the main topics covered</button>
+            <button class="suggestion-chip">What is the most important concept here?</button>
+          </div>
+        </div>
+      </div>
+
+      <form id="chat-form" class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Ask something... (press / to focus)" required autocomplete="off">
+        <button type="submit" class="btn-primary" id="chat-send-btn">Send</button>
+      </form>
+    </section>
+
+    <section id="view-documents" class="view">
+      <div class="panel-header"><h2>Documents</h2></div>
+
+      <details class="explainer-panel-small explainer-collapsible">
+        <summary class="explainer-title">Choosing a chunking strategy (click to expand)</summary>
+        <div class="strategy-grid">
+          <div class="strategy-card">
+            <div class="strategy-name">Recursive</div>
+            <div class="strategy-desc">Splits text into fixed-size pieces, breaking cleanly at paragraphs and sentences where possible. A safe default for most documents.</div>
+          </div>
+          <div class="strategy-card">
+            <div class="strategy-name">Semantic</div>
+            <div class="strategy-desc">Groups sentences by meaning, so each piece stays on a single topic. Better for documents with distinct sections or ideas.</div>
+          </div>
+          <div class="strategy-card">
+            <div class="strategy-name">Contextual</div>
+            <div class="strategy-desc">Adds short surrounding context to each piece before storing it, helping the AI understand a piece even out of order. Best for dense technical material.</div>
+          </div>
+        </div>
+      </details>
+
+      <div class="upload-panel">
+        <form id="upload-form" class="upload-row">
+          <label class="file-input-label" id="file-label">Choose file
+            <input type="file" id="upload-file" accept=".pdf,.docx,.txt,.md,.xlsx,.csv,.json,.html,.pptx" multiple style="display:none" required>
+          </label>
+          <input type="text" id="upload-doc-id" placeholder="Document ID (unique)" required>
+          <input type="text" id="upload-collection" placeholder="Collection (optional)">
+          <select id="upload-strategy">
+            <option value="recursive">Recursive</option>
+            <option value="semantic">Semantic</option>
+            <option value="contextual">Contextual</option>
+          </select>
+          <button type="submit" class="btn-primary">Upload</button>
+        </form>
+        <div class="upload-status" id="upload-status"></div>
+      </div>
+      <div class="doc-filter-row">
+        <select id="doc-collection-filter" class="doc-collection-filter">
+          <option value="">All documents</option>
+        </select>
+      </div>
+      <div class="doc-list-scroll"><div class="doc-list" id="doc-list"><div class="empty-state">Loading documents...</div></div></div>
+    </section>
+
+    <section id="view-history" class="view">
+      <div class="panel-header"><h2>Chat History</h2></div>
+      <div class="history-layout">
+        <div class="session-list">
+          <input type="text" id="history-search" class="history-search" placeholder="Search chat history...">
+          <div id="session-list-inner"><div class="empty-state">Loading sessions...</div></div>
+        </div>
+        <div class="session-detail" id="session-detail"><div class="empty-state">Select a session to view its messages.</div></div>
+      </div>
+    </section>
+
+    <section id="view-pipeline" class="view">
+      <div class="panel-header"><h2>RAG Pipeline</h2></div>
+      <p class="section-intro">Enter any question below to see exactly how the system processes it, stage by stage, including real timing for each step.</p>
+      <form id="trace-form" class="chat-input-row" style="margin-bottom: 20px;">
+        <input type="text" id="trace-input" placeholder="Enter a question to trace through the pipeline..." required autocomplete="off">
+        <button type="submit" class="btn-primary" id="trace-send-btn">Trace</button>
+      </form>
+      <div id="trace-result" class="trace-container">
+        <div class="empty-state">Enter a question above to see it move through each pipeline stage.</div>
+      </div>
+    </section>
+
+    <section id="view-evaluation" class="view">
+      <div class="panel-header">
+        <h2>Evaluation</h2>
+        <button id="run-eval-btn" class="btn-primary btn-small">Run Evaluation</button>
+      </div>
+      <p class="section-intro">Evaluation measures real retrieval accuracy against a small set of known question-and-answer pairs. Recall@K is the percentage of questions where the correct source was found; MRR measures how highly it was ranked.</p>
+      <div id="eval-status" class="upload-status"></div>
+      <div id="eval-history" class="doc-list"><div class="empty-state">Loading evaluation history...</div></div>
+    </section>
+
+    <section id="view-settings" class="view">
+      <div class="panel-header"><h2>Settings</h2></div>
+      <div class="settings-section">
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Appearance</div>
+            <div class="settings-desc">Switch between light and dark mode.</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="opt-dark-mode"><span class="slider"></span></label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Account</div>
+            <div class="settings-desc" id="settings-email">—</div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">LLM Provider</div>
+            <div class="settings-desc" id="settings-provider">—</div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Embedding Model</div>
+            <div class="settings-desc" id="settings-embedding">—</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="script.js?v=10"></script>
+</body>
+</html>
