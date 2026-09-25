@@ -1,6 +1,7 @@
 from app.core.vector_store import vector_store
 from app.core.bm25_store import bm25_store
 from app.core.embeddings import embedding_service
+from app.config import settings
 
 
 class HybridRetriever:
@@ -21,7 +22,7 @@ class HybridRetriever:
             # Scoped to specific document(s): BM25's in-memory index has no
             # per-chunk metadata filter, so scoped search relies on dense
             # (semantic) retrieval only. This is an honest simplification,
-            # not a bug — full hybrid scoring only applies to unscoped search.
+            # not a bug - full hybrid scoring only applies to unscoped search.
             ranked = sorted(dense_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
             id_to_text = dict(zip(dense_ids, dense_texts))
             final_ids = [cid for cid, _ in ranked]
@@ -68,4 +69,9 @@ class HybridRetriever:
         return {k: (v - min_v) / (max_v - min_v) for k, v in scores.items()}
 
 
-hybrid_retriever = HybridRetriever()
+# Weights come from config/.env (DENSE_WEIGHT, SPARSE_WEIGHT).
+# getattr keeps the app starting with the defaults even if they aren't defined there.
+hybrid_retriever = HybridRetriever(
+    dense_weight=getattr(settings, "dense_weight", 0.6),
+    sparse_weight=getattr(settings, "sparse_weight", 0.4),
+)
