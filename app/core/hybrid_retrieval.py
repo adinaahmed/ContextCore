@@ -1,6 +1,7 @@
 from app.core.vector_store import vector_store
 from app.core.bm25_store import bm25_store
 from app.core.embeddings import embedding_service
+from app.config import settings
 
 
 class HybridRetriever:
@@ -8,9 +9,20 @@ class HybridRetriever:
         self.dense_weight = dense_weight
         self.sparse_weight = sparse_weight
 
-    def retrieve(self, query: str, top_k: int = 5, where: dict | None = None) -> list[dict]:
+    @staticmethod
+    def _combine_where(where: dict | None, owner_id: str | None) -> dict | None:
+        """Adds the owner filter to any document filter, so vector search
+        only ever looks at the current user's chunks."""
+        if owner_id and where:
+            return {"$and": [{"owner_id": owner_id}, where]}
+        if owner_id:
+            return {"owner_id": owner_id}
+        return where
+
+    def retrieve(self, query: str, top_k: int = 5, where: dict | None = None, owner_id: str | None = None) -> list[dict]:
         query_embedding = embedding_service.embed_text(query)
-        dense_results = vector_store.query(query_embedding, top_k=top_k * 2, where=where)
+        dense_where = self._combine_where(where, owner_id)
+        dense_results = vector_store.query(query_embedding, top_k=top_k * 2, where=dense_where)
 
         dense_ids = dense_results["ids"][0] if dense_results["ids"] else []
         dense_texts = dense_results["documents"][0] if dense_results["documents"] else []
@@ -20,8 +32,7 @@ class HybridRetriever:
         if where:
             # Scoped to specific document(s): BM25's in-memory index has no
             # per-chunk metadata filter, so scoped search relies on dense
-            # (semantic) retrieval only. This is an honest simplification,
-            # not a bug — full hybrid scoring only applies to unscoped search.
+            # (semantic) retrieval only. Full hybrid scoring applies to unscoped search.
             ranked = sorted(dense_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
             id_to_text = dict(zip(dense_ids, dense_texts))
             final_ids = [cid for cid, _ in ranked]
@@ -31,7 +42,16 @@ class HybridRetriever:
                 for cid, score in ranked
             ]
 
-        bm25_results = bm25_store.query(query, top_k=top_k * 2)
+        # BM25 has no metadata, so over-fetch and then keep only this user's chunks
+        bm25_results = bm25_store.query(query, top_k=top_k * 4)
+        if owner_id:
+            bm25_ids = [cid for cid, _, _ in bm25_results]
+            bm25_meta = vector_store.get_metadata_by_ids(bm25_ids) if bm25_ids else {}
+            bm25_results = [
+                r for r in bm25_results
+                if (bm25_meta.get(r[0]) or {}).get("owner_id") == owner_id
+            ][: top_k * 2]
+
         bm25_scores_raw = {chunk_id: score for chunk_id, _, score in bm25_results}
 
         dense_scores_norm = self._normalize(dense_scores)
@@ -68,4 +88,9 @@ class HybridRetriever:
         return {k: (v - min_v) / (max_v - min_v) for k, v in scores.items()}
 
 
-hybrid_retriever = HybridRetriever()
+# Weights come from config/.env (DENSE_WEIGHT, SPARSE_WEIGHT).
+# getattr keeps the app starting with the defaults even if they aren't defined there.
+hybrid_retriever = HybridRetriever(
+    dense_weight=getattr(settings, "dense_weight", 0.6),
+    sparse_weight=getattr(settings, "sparse_weight", 0.4),
+)

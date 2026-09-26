@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     api_key: str = "change-this-secret-key"
 
     chunk_size: int = 500
+    router_mode: str = "fast"
+    query_rewrite_expand: bool = True
+    dense_weight: float = 0.6
+    sparse_weight: float = 0.4
     chunk_overlap: int = 50
     default_chunk_strategy: str = "recursive"
 

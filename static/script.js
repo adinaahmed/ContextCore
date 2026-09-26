@@ -773,3 +773,52 @@ function updateAdvancedStatusChip() {
 document.getElementById("opt-multi-query").addEventListener("change", updateAdvancedStatusChip);
 document.getElementById("opt-compression").addEventListener("change", updateAdvancedStatusChip);
 updateAdvancedStatusChip();
+
+// ===== Simple mode (default) / Advanced mode toggle =====
+(function setupSimpleMode() {
+  const KEY = "cc_advanced_mode";
+
+  function apply(advancedOn) {
+    document.body.classList.toggle("simple-mode", !advancedOn);
+    if (!advancedOn) {
+      const onHiddenPage = document.querySelector('.nav-item.active[data-view="pipeline"], .nav-item.active[data-view="evaluation"]');
+      if (onHiddenPage) document.querySelector('.nav-item[data-view="overview"]').click();
+      const mq = document.getElementById("opt-multi-query");
+      const cp = document.getElementById("opt-compression");
+      if (mq) mq.checked = false;
+      if (cp) cp.checked = false;
+      if (typeof updateAdvancedStatusChip === "function") updateAdvancedStatusChip();
+    }
+  }
+
+  const section = document.querySelector("#view-settings .settings-section");
+  if (section) {
+    const row = document.createElement("div");
+    row.className = "settings-row";
+    row.innerHTML = `
+      <div>
+        <div class="settings-label">Advanced mode</div>
+        <div class="settings-desc">Shows technical tools: pipeline tracing, evaluation, chunking options and search settings. Most users can leave this off.</div>
+      </div>
+      <label class="switch"><input type="checkbox" id="opt-advanced-mode"><span class="slider"></span></label>`;
+    section.insertBefore(row, section.children[1] || null);
+    const toggle = row.querySelector("#opt-advanced-mode");
+    toggle.checked = localStorage.getItem(KEY) === "1";
+    toggle.addEventListener("change", () => {
+      localStorage.setItem(KEY, toggle.checked ? "1" : "0");
+      apply(toggle.checked);
+    });
+  }
+
+  apply(localStorage.getItem(KEY) === "1");
+})();
+
+// In simple mode, the document ID always comes from the chosen file's name
+document.getElementById("upload-file").addEventListener("change", (e) => {
+  if (!document.body.classList.contains("simple-mode")) return;
+  const files = e.target.files;
+  const idField = document.getElementById("upload-doc-id");
+  if (files.length === 1) {
+    idField.value = files[0].name.replace(/\.[^/.]+$/, "").replace(/\s+/g, "_").toLowerCase();
+  }
+});

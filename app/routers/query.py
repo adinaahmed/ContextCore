@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timezone
+from app.config import settings
 from app.db.database import get_db
 from app.schemas.query import QueryRequest, QueryResponse, Citation
 from app.schemas.structured_answer import StructuredAnswer
@@ -11,15 +12,32 @@ from app.core.llm import llm_service
 from app.core.auth import get_current_user
 from app.core.memory import conversation_memory
 from app.core.query_rewriter import query_rewriter
-from app.core.router_chain import classify_question
+from app.core import fast_router, router_chain
 from app.core.lcel_chain import run_structured_chain
 from app.core.multi_query import multi_query_retrieve
 from app.core.context_compression import context_compressor
 from app.core.tool_calling import answer_with_tools
 from app.core.latency_profiler import LatencyProfiler
+from app.core.vector_store import vector_store
 from app.models.conversation import ConversationMessage, ConversationSession
 
 router = APIRouter()
+
+
+def classify_question(question: str) -> str:
+    """
+    ROUTER_MODE=fast (default): instant rule-based routing, no LLM call.
+    ROUTER_MODE=llm: the LLM router chain described in the development plan,
+    falling back to the rule-based router if the LLM call fails.
+    """
+    if getattr(settings, "router_mode", "fast").lower() == "llm":
+        try:
+            result = router_chain.classify_question(question)
+            if result in {"direct", "calculation", "simple", "complex"}:
+                return result
+        except Exception:
+            pass
+    return fast_router.classify_question(question)
 
 
 def _build_citations(reranked: list[dict]) -> list[Citation]:
@@ -40,45 +58,60 @@ def _build_where(document_ids: list[str] | None) -> dict | None:
     return {"document_id": {"$in": document_ids}}
 
 
-def _retrieve(search_question: str, top_k: int, use_multi_query: bool, document_ids: list[str] | None):
+def _filter_to_owner(candidates: list[dict], owner_id: str) -> list[dict]:
+    """Final safety check: drop any chunk that doesn't belong to the current user,
+    whichever retrieval path produced it."""
+    ids = [c.get("chunk_id") for c in candidates if c.get("chunk_id")]
+    meta_map = vector_store.get_metadata_by_ids(ids) if ids else {}
+    owned = []
+    for c in candidates:
+        meta = meta_map.get(c.get("chunk_id")) or c.get("metadata") or {}
+        if meta.get("owner_id") == owner_id:
+            c["metadata"] = meta
+            owned.append(c)
+    return owned
+
+
+def _retrieve(search_question: str, top_k: int, use_multi_query: bool, document_ids: list[str] | None, owner_id: str):
     where = _build_where(document_ids)
     if use_multi_query and not where:
-        return multi_query_retrieve(search_question, top_k=top_k)
-    return hybrid_retriever.retrieve(search_question, top_k=top_k * 2, where=where)
+        candidates = multi_query_retrieve(search_question, top_k=top_k)
+    else:
+        candidates = hybrid_retriever.retrieve(search_question, top_k=top_k * 2, where=where, owner_id=owner_id)
+    return _filter_to_owner(candidates, owner_id)
 
 
 @router.post("/query", response_model=QueryResponse)
 def query_documents(request: QueryRequest, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    user_id = current_user["user_id"]
     try:
         classification = classify_question(request.question)
 
         if classification == "direct":
             answer = llm_service.generate_direct_answer(request.question)
             if request.session_id:
-                conversation_memory.add_turn(db, request.session_id, request.question, answer, owner_id=current_user["user_id"])
+                conversation_memory.add_turn(db, request.session_id, request.question, answer, owner_id=user_id)
             return QueryResponse(answer=answer, sources=[], citations=[], session_id=request.session_id, classification=classification)
 
         if classification == "calculation":
             tool_result = answer_with_tools(request.question)
             answer = tool_result.get("answer", "Calculation failed.")
             if request.session_id:
-                conversation_memory.add_turn(db, request.session_id, request.question, answer, owner_id=current_user["user_id"])
+                conversation_memory.add_turn(db, request.session_id, request.question, answer, owner_id=user_id)
             return QueryResponse(answer=answer, sources=[], citations=[], session_id=request.session_id, classification=classification)
 
-        search_question = request.question
-        if request.session_id:
-            history = conversation_memory.get_history(db, request.session_id)
-            search_question = query_rewriter.rewrite(request.question, history)
+        history = conversation_memory.get_history(db, request.session_id) if request.session_id else []
+        search_question = query_rewriter.rewrite(request.question, history)
 
         use_multi_query = request.use_multi_query or (classification == "complex")
         use_compression = request.use_context_compression or (classification == "complex")
 
-        candidates = _retrieve(search_question, request.top_k, use_multi_query, request.document_ids)
+        candidates = _retrieve(search_question, request.top_k, use_multi_query, request.document_ids, user_id)
 
         if not candidates:
             answer = "I don't have enough information to answer that."
             if request.session_id:
-                conversation_memory.add_turn(db, request.session_id, request.question, answer, owner_id=current_user["user_id"])
+                conversation_memory.add_turn(db, request.session_id, request.question, answer, owner_id=user_id)
             return QueryResponse(answer=answer, sources=[], citations=[], session_id=request.session_id, classification=classification)
 
         reranked = reranker_service.rerank(search_question, candidates, top_k=request.top_k)
@@ -94,15 +127,20 @@ def query_documents(request: QueryRequest, current_user: dict = Depends(get_curr
             answer = "Answer generation is temporarily unavailable. Here are the most relevant source chunks retrieved instead."
 
         if request.session_id:
-            conversation_memory.add_turn(db, request.session_id, request.question, answer, owner_id=current_user["user_id"])
+            conversation_memory.add_turn(db, request.session_id, request.question, answer, owner_id=user_id)
 
-        return QueryResponse(answer=answer, sources=retrieved_texts, citations=citations, session_id=request.session_id, classification=classification)
+        top_score = reranked[0]["score"] if reranked else 0.0
+        confidence = "high" if top_score >= 0.6 else "medium" if top_score >= 0.3 else "low"
+
+        return QueryResponse(answer=answer, sources=retrieved_texts, citations=citations,
+                             session_id=request.session_id, classification=classification, confidence=confidence)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
 
 
 @router.post("/query/structured", response_model=StructuredAnswer)
 def query_structured(request: QueryRequest, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    user_id = current_user["user_id"]
     try:
         classification = classify_question(request.question)
         if classification == "direct":
@@ -113,7 +151,7 @@ def query_structured(request: QueryRequest, current_user: dict = Depends(get_cur
             result["sources"] = []
             return StructuredAnswer(**result)
 
-        candidates = _retrieve(request.question, request.top_k, False, request.document_ids)
+        candidates = _retrieve(request.question, request.top_k, False, request.document_ids, user_id)
         if not candidates:
             return StructuredAnswer(answer="I don't have enough information to answer that.", confidence=0.0, sources=[], used_retrieval=False)
 
@@ -136,6 +174,7 @@ def query_with_tools(request: QueryRequest, current_user: dict = Depends(get_cur
 
 @router.post("/query/trace")
 def query_with_trace(request: QueryRequest, current_user: dict = Depends(get_current_user)):
+    user_id = current_user["user_id"]
     profiler = LatencyProfiler()
     trace = {"question": request.question}
     with profiler.measure("routing"):
@@ -152,7 +191,7 @@ def query_with_trace(request: QueryRequest, current_user: dict = Depends(get_cur
         trace.update({"answer": tool_result.get("answer", ""), **profiler.get_report()})
         return trace
     with profiler.measure("retrieval"):
-        candidates = _retrieve(request.question, request.top_k, False, request.document_ids)
+        candidates = _retrieve(request.question, request.top_k, False, request.document_ids, user_id)
     trace["fused_candidates"] = len(candidates)
     trace["top_candidate_scores"] = [round(c["score"], 4) for c in candidates[:5]]
     if not candidates:

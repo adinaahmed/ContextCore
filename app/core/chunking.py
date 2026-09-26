@@ -55,7 +55,7 @@ class ChunkingService:
     def _chunk_contextual(self, text: str) -> list[str]:
         """
         Splits using the recursive strategy first (for consistent sizing),
-        then asks Gemini to prepend a short contextual summary to each chunk.
+        then asks the LLM to prepend a short contextual summary to each chunk.
         """
         base_chunks = self._chunk_recursive(text)
         enriched_chunks = []
@@ -65,7 +65,7 @@ class ChunkingService:
                 context_note = self._generate_context_note(full_document=text, chunk=chunk)
                 enriched_chunks.append(f"{context_note}\n\n{chunk}")
             except Exception:
-                # If Gemini fails for one chunk, fall back to the raw chunk
+                # If the LLM fails for one chunk, fall back to the raw chunk
                 # rather than losing that piece of the document entirely
                 enriched_chunks.append(chunk)
 
@@ -84,11 +84,13 @@ CHUNK:
 
 CONTEXT SENTENCE:"""
 
-        response = llm_service.client.models.generate_content(
-            model=llm_service.model_name,
-            contents=prompt,
-        )
-        return response.text.strip()
+        # raw_generate uses the shared LLM service: Gemini, with automatic
+        # fallback to Ollama if Gemini is unavailable
+        note = (llm_service.raw_generate(prompt) or "").strip()
+        if not note:
+            # Raising lets _chunk_contextual fall back to storing the plain chunk
+            raise ValueError("Empty context note")
+        return note
 
     @staticmethod
     def _split_sentences(text: str) -> list[str]:

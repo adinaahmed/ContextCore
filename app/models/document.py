@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, LargeBinary
+from sqlalchemy import Column, String, Integer, DateTime, LargeBinary, text
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime, timezone
 from app.db.database import Base
@@ -7,7 +7,7 @@ from app.db.database import Base
 class Document(Base):
     __tablename__ = "documents"
 
-    id = Column(UUID(as_uuid=False), primary_key=True, server_default="gen_random_uuid()")
+    id = Column(UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()"))
     document_id = Column(String, unique=True, nullable=False, index=True)
     owner_id = Column(String, nullable=False, index=True)
     source = Column(String, nullable=True)

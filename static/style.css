@@ -364,3 +364,21 @@ body[data-theme="dark"] .trace-node-badge { box-shadow: 0 0 0 4px var(--cream-so
 .auth-form { gap: 15px; }
 .auth-form input { padding: 13px 15px; font-size: 14.5px; }
 .btn-primary { padding: 13px 20px; font-size: 14.5px; }
+
+/* ===== Simple mode: hide technical UI ===== */
+body.simple-mode .nav-item[data-view="pipeline"],
+body.simple-mode .nav-item[data-view="evaluation"],
+body.simple-mode .advanced-wrap,
+body.simple-mode #usage-counter,
+body.simple-mode .explainer-panel-small,
+body.simple-mode #upload-doc-id,
+body.simple-mode #upload-collection,
+body.simple-mode #upload-strategy,
+body.simple-mode .doc-filter-row,
+body.simple-mode .text-link-btn,
+body.simple-mode .doc-meta,
+body.simple-mode .msg-meta .badge,
+body.simple-mode .stat-section-title,
+body.simple-mode .stat-grid {
+  display: none !important;
+}
