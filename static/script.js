@@ -774,7 +774,6 @@ document.getElementById("opt-multi-query").addEventListener("change", updateAdva
 document.getElementById("opt-compression").addEventListener("change", updateAdvancedStatusChip);
 updateAdvancedStatusChip();
 
-
 // ===== Simple mode (default) / Advanced mode toggle =====
 (function setupSimpleMode() {
   const KEY = "cc_advanced_mode";

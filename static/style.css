@@ -365,7 +365,6 @@ body[data-theme="dark"] .trace-node-badge { box-shadow: 0 0 0 4px var(--cream-so
 .auth-form input { padding: 13px 15px; font-size: 14.5px; }
 .btn-primary { padding: 13px 20px; font-size: 14.5px; }
 
-
 /* ===== Simple mode: hide technical UI ===== */
 body.simple-mode .nav-item[data-view="pipeline"],
 body.simple-mode .nav-item[data-view="evaluation"],
