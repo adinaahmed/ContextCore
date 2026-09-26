@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     chunk_size: int = 500
     chunk_overlap: int = 50
+    router_mode: str = "fast"
     query_rewrite_expand: bool = True
     dense_weight: float = 0.6
     sparse_weight: float = 0.4

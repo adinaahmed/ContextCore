@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timezone
+from app.config import settings
 from app.db.database import get_db
 from app.schemas.query import QueryRequest, QueryResponse, Citation
 from app.schemas.structured_answer import StructuredAnswer
@@ -11,7 +12,7 @@ from app.core.llm import llm_service
 from app.core.auth import get_current_user
 from app.core.memory import conversation_memory
 from app.core.query_rewriter import query_rewriter
-from app.core.fast_router import classify_question
+from app.core import fast_router, router_chain
 from app.core.lcel_chain import run_structured_chain
 from app.core.multi_query import multi_query_retrieve
 from app.core.context_compression import context_compressor
@@ -21,6 +22,22 @@ from app.core.vector_store import vector_store
 from app.models.conversation import ConversationMessage, ConversationSession
 
 router = APIRouter()
+
+
+def classify_question(question: str) -> str:
+    """
+    ROUTER_MODE=fast (default): instant rule-based routing, no LLM call.
+    ROUTER_MODE=llm: the LLM router chain described in the development plan,
+    falling back to the rule-based router if the LLM call fails.
+    """
+    if getattr(settings, "router_mode", "fast").lower() == "llm":
+        try:
+            result = router_chain.classify_question(question)
+            if result in {"direct", "calculation", "simple", "complex"}:
+                return result
+        except Exception:
+            pass
+    return fast_router.classify_question(question)
 
 
 def _build_citations(reranked: list[dict]) -> list[Citation]:

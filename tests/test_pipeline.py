@@ -1,7 +1,7 @@
 """
 Extended test suite covering the plan items not in test_integration.py:
 router, hybrid/BM25 retrieval, reranking, query rewriting, conversation memory,
-tool calling, edge cases and user data isolation.
+tool calling, edge cases, grounding and user data isolation.
 
 Tests marked 'llm' call Gemini (with Ollama fallback) and need a working API key.
 Run all:           pytest tests/test_pipeline.py -v
@@ -189,7 +189,7 @@ def test_long_document_is_split_into_many_chunks(token_a):
         client.delete(f"/documents/{doc_id}", headers=_auth(token_a))
 
 
-# ---------- 8. User data isolation (expected to FAIL until fixed) ----------
+# ---------- 8. User data isolation ----------
 
 def test_user_cannot_retrieve_other_users_documents(token_a, token_b):
     secret = f"codeword{uuid.uuid4().hex[:8]}"
@@ -224,7 +224,6 @@ def test_same_document_id_does_not_overwrite_other_user(token_a, token_b):
         client.delete(f"/documents/{doc_id}", headers=_auth(token_a))
         client.delete(f"/documents/{doc_id}", headers=_auth(token_b))
 
-        
 
 # ---------- 9. Calculator fallback (works without any LLM) ----------
 
@@ -248,3 +247,46 @@ def test_calculator_fallback_parses_questions(question, expected):
 def test_calculator_fallback_ignores_non_math():
     from app.core.tool_calling import _local_answer
     assert _local_answer("what is hashing") is None
+
+
+# ---------- 10. Grounding (no hallucination) and memory summarization ----------
+
+def test_user_with_no_documents_gets_no_invented_answer():
+    token = _new_user_token()
+    r = client.post("/query", headers=_auth(token),
+                    json={"question": "What is the refund policy of the Northwind lab?"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["citations"] == []
+    assert "enough information" in body["answer"].lower()
+
+
+@pytest.mark.llm
+def test_out_of_scope_question_is_not_answered_from_general_knowledge(token_a):
+    doc_id = f"test_scope_{uuid.uuid4().hex[:6]}"
+    client.post("/ingest", headers=_auth(token_a), json={
+        "document_id": doc_id, "source": "test", "strategy": "recursive",
+        "text": "Linear probing resolves hash collisions by checking the next slot in the table.",
+    })
+    try:
+        r = client.post("/query", headers=_auth(token_a),
+                        json={"question": "What is the capital of Australia?", "document_ids": [doc_id]})
+        assert r.status_code == 200, r.text
+        assert "canberra" not in r.json()["answer"].lower(), "Answered from general knowledge instead of the documents"
+    finally:
+        client.delete(f"/documents/{doc_id}", headers=_auth(token_a))
+
+
+@pytest.mark.llm
+def test_long_conversation_gets_summarized():
+    db = next(get_db())
+    session_id = f"test_summary_{uuid.uuid4().hex[:8]}"
+    owner_id = str(uuid.uuid4())
+    try:
+        for i in range(12):
+            conversation_memory.add_turn(db, session_id, f"Question {i} about hash tables?",
+                                         f"Answer {i}: hash tables store keys in buckets.", owner_id=owner_id)
+        assert conversation_memory.get_summary(db, session_id), "No summary was generated after 12 turns"
+    finally:
+        conversation_memory.clear_session(db, session_id)
+        db.close()
