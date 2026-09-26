@@ -515,11 +515,11 @@ async function loadDocuments(collectionId) {
       </div>`).join("");
     listEl.querySelectorAll("[data-open]").forEach(el => {
       el.addEventListener("click", () => {
-        const hasOriginal = el.dataset.hasOriginal === "true";
-        const base = window.location.origin;
-        const url = hasOriginal
-          ? `${base}/documents/${encodeURIComponent(el.dataset.open)}/download?token=${encodeURIComponent(authToken)}`
-          : `${base}/documents/${encodeURIComponent(el.dataset.open)}/view?token=${encodeURIComponent(authToken)}`;
+        if (el.dataset.hasOriginal !== "true") {
+          alert("The original file for this document isn't available (older upload, or the file was too large to store). Use \'View processing details\' to inspect it instead.");
+          return;
+        }
+        const url = `${window.location.origin}/documents/${encodeURIComponent(el.dataset.open)}/download?token=${encodeURIComponent(authToken)}`;
         window.open(url, "_blank");
       });
     });
@@ -645,7 +645,7 @@ async function loadSessionDetail(sessionId) {
         appendAssistantMessage(t.answer, [], null, null);
       });
       lastChatDateKey = ck;
-      document.querySelector(\'.nav-item[data-view="ask"]\').click();
+      document.querySelector('.nav-item[data-view="ask"]').click();
       setTimeout(() => document.getElementById("chat-input").focus(), 50);
     });
   } catch (err) {
@@ -756,3 +756,20 @@ document.addEventListener("click", (e) => {
     panel.classList.add("hidden");
   }
 });
+
+function updateAdvancedStatusChip() {
+  const chip = document.getElementById("advanced-status-chip");
+  if (!chip) return;
+  const active = [];
+  if (document.getElementById("opt-multi-query").checked) active.push("Multi-query");
+  if (document.getElementById("opt-compression").checked) active.push("Compression");
+  if (active.length) {
+    chip.textContent = "Active: " + active.join(", ");
+    chip.classList.remove("hidden");
+  } else {
+    chip.classList.add("hidden");
+  }
+}
+document.getElementById("opt-multi-query").addEventListener("change", updateAdvancedStatusChip);
+document.getElementById("opt-compression").addEventListener("change", updateAdvancedStatusChip);
+updateAdvancedStatusChip();

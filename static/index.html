@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -170,6 +170,7 @@
           <button id="new-chat-btn" class="btn-secondary btn-small">New Chat</button>
           <div class="advanced-wrap">
             <button id="advanced-toggle" class="btn-ghost btn-small">Advanced Options</button>
+            <span id="advanced-status-chip" class="advanced-status-chip hidden"></span>
             <div id="advanced-panel" class="advanced-panel hidden">
         <div class="advanced-option">
           <div class="advanced-option-head">
@@ -211,8 +212,8 @@
     <section id="view-documents" class="view">
       <div class="panel-header"><h2>Documents</h2></div>
 
-      <div class="explainer-panel-small">
-        <div class="explainer-title">Choosing a chunking strategy</div>
+      <details class="explainer-panel-small explainer-collapsible">
+        <summary class="explainer-title">Choosing a chunking strategy (click to expand)</summary>
         <div class="strategy-grid">
           <div class="strategy-card">
             <div class="strategy-name">Recursive</div>
@@ -227,7 +228,7 @@
             <div class="strategy-desc">Adds short surrounding context to each piece before storing it, helping the AI understand a piece even out of order. Best for dense technical material.</div>
           </div>
         </div>
-      </div>
+      </details>
 
       <div class="upload-panel">
         <form id="upload-form" class="upload-row">
@@ -250,7 +251,7 @@
           <option value="">All documents</option>
         </select>
       </div>
-      <div class="doc-list" id="doc-list"><div class="empty-state">Loading documents...</div></div>
+      <div class="doc-list-scroll"><div class="doc-list" id="doc-list"><div class="empty-state">Loading documents...</div></div></div>
     </section>
 
     <section id="view-history" class="view">
@@ -320,6 +321,6 @@
   </main>
 </div>
 
-<script src="script.js?v=6"></script>
+<script src="script.js?v=9"></script>
 </body>
 </html>

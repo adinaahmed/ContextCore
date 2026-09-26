@@ -292,7 +292,7 @@ def _render_table_page(filename: str, rows: list, sheet_name: str = None) -> str
 
 
 @router.get("/documents/{document_id}/view", response_class=HTMLResponse)
-def view_document(document_id: str, token: str = Query(...), mode: str = Query(default="full"), db: Session = Depends(get_db)):
+def view_document(document_id: str, token: str = Query(...), db: Session = Depends(get_db)):
     user_id = _resolve_user_id_from_query_token(token)
     doc = db.query(Document).filter(Document.document_id == document_id, Document.owner_id == user_id).first()
     if not doc:
@@ -306,38 +306,15 @@ def view_document(document_id: str, token: str = Query(...), mode: str = Query(d
     ordered = sorted(zip(ids, metadatas), key=lambda pair: pair[1].get("chunk_index", 0))
     strategy_label = STRATEGY_DESCRIPTIONS.get(doc.chunking_strategy, doc.chunking_strategy or "Unknown")
 
-    ext = _get_ext(doc.original_filename or "")
-    has_original = doc.original_file_data is not None
-    can_open_natively = has_original and (ext in INLINE_RENDERABLE_EXT or ext in TABLE_RENDERABLE_EXT)
-
-    info_banner = ""
-    if has_original and ext in NO_BROWSER_RENDERER_EXT:
-        info_banner = f'<div class="info-banner">This is a {ext.strip(".").upper()} file. Browsers have no built-in viewer for this format, so it downloads instead of opening inline — this applies to every website, not just this one. Once this app is deployed publicly, files like this can be rendered inline using Microsoft/Google\'s document viewer services.</div>'
-
-    original_action = ""
-    if has_original:
-        label = "Open Original File" if can_open_natively else "Download Original File"
-        original_action = f'<a href="/documents/{document_id}/download?token={token}" target="_blank" class="tab-link">{label}</a>'
-    else:
-        original_action = '<span style="font-size:12px;color:#7a5f57;align-self:center;">Original file not stored (older upload or too large)</span>'
-
-    if mode == "chunks":
-        chunk_html = f'<div class="info-banner">Chunking technique used: <strong>{strategy_label}</strong></div>'
-        for cid, meta in ordered:
-            text = id_to_text.get(cid, "")
-            page = meta.get("page_number")
-            page_label = f" &middot; page {page}" if isinstance(page, int) and page >= 0 else ""
-            chunk_html += f'<div class="chunk-card"><div class="chunk-label">Chunk {meta.get("chunk_index", "?")}{page_label}</div><div class="chunk-text">{text}</div></div>'
-        body = chunk_html
-    else:
-        full_text = "\n\n".join(id_to_text.get(cid, "") for cid, _ in ordered)
-        body = f'<div class="full-text-box">{full_text}</div>'
-
-    nav = f'''<div class="tabs-row">
-      <a href="?token={token}&mode=full" class="tab-link {"active" if mode == "full" else ""}">Extracted Text</a>
-      <a href="?token={token}&mode=chunks" class="tab-link {"active" if mode == "chunks" else ""}">View Chunks (Technique)</a>
-      {original_action}
-    </div>'''
+    chunk_html = f'<div class="info-banner">Chunking technique used: <strong>{strategy_label}</strong></div>'
+    for cid, meta in ordered:
+        text = id_to_text.get(cid, "")
+        page = meta.get("page_number")
+        page_label = f" &middot; page {page}" if isinstance(page, int) and page >= 0 else ""
+        chunk_html += f'''<div class="chunk-card">
+          <div class="chunk-label">Chunk {meta.get("chunk_index", "?")}{page_label}</div>
+          <div class="chunk-text">{text}</div>
+        </div>'''
 
     return f"""<html><head><title>{document_id} — ContextCore</title>{PAGE_STYLE}</head><body>
       <div class="topbar">
@@ -345,8 +322,6 @@ def view_document(document_id: str, token: str = Query(...), mode: str = Query(d
         <div class="topbar-meta">Version {doc.version} &middot; {doc.source} &middot; {doc.collection_id or 'no collection'} &middot; {len(ordered)} chunk(s)</div>
       </div>
       <div class="container">
-        {nav}
-        {info_banner}
-        {body}
+        {chunk_html}
       </div>
     </body></html>"""
